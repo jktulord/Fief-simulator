@@ -4,7 +4,7 @@ word = ""
 state = "MENU"
 namelist = ["John", "Max", "Макс", "Макс_Хас", "Акакаий", "Добрыня", "Яков", "Нурберг", "Паша", "Пася", "Саша", "Сася",
             "Johnathan", "Johnson", "Joe", "Jerry", "Jackson", "Jefferson", "Jacob", "Jack", "Jokey"]
-womannamelist = ["Агния","Анка","Бана","Вера","Горислава","Доля","Еля","Желана","Зара","Доля"]
+womannamelist = ["Агния","Анка","Бана","Вера","Горислава","Доля","Еля","Желана","Зара","Доля","Дуля","Дуня","Желя","Елена","Есения","Златослава","Ирина","Искра","Иста","Каролина","Катерина","Люта","Лебедь","Маня","Милана","Мира","Негомира","Ольга","Просковья","Панислава","Раша","Рослава","Светислава","Сияна","Соня","Тайна","Тихомира"]
 
 plebs = []
 brides = []
@@ -28,6 +28,7 @@ class player(object):
         self.wood = 0
         self.milk = 0
         self.mushrooms = 0
+        self.cow = 0
         self.incomingWheet = 0
         self.incomingWood = 0
         self.incomingMilk = 0
@@ -54,6 +55,9 @@ class player(object):
             self.incomingWood = 0
             self.incomingMilk = 0
             self.incomingMushrooms = 0
+            tr.generateGoods()
+            for p in plebs:
+                p.yearlyfamilycheck()
 
     def rounding(self):
         self.wheet = round(self.wheet, 1)
@@ -72,6 +76,7 @@ class woman(object):
     def __init__(self,type ="none"):
         self.name = womannamelist[random.randint(0, len(womannamelist) - 1)]
         self.age = random.randint(14, 20)
+        self.sex = "female"
         if type == "child":
             self.age = 1
 
@@ -87,6 +92,7 @@ class pleb(object):
     def __init__(self, money, type):
         """Constructor"""
         self.name = namelist[random.randint(0, len(namelist) - 1)]
+        self.sex = "male"
         self.money = money
         self.age = random.randint(18,28)
         self.wife = "none"
@@ -105,41 +111,91 @@ class pleb(object):
         self.wood = 0
         self.milk = 0
         self.mushrooms = 0
-        self.efficiency = 0
+        self.instruments = 0
+        self.efficiency = 1
         self.theGoal = "none"
+        self.requiredMoney = 0
 
     def deciding(self):  # Выбор цели
         food = self.wheet + self.milk + self.mushrooms
+        wheet = self.wheet
         # Решение делать еду
+
+
         if food < 7:
             self.theGoal = "food"
         elif self.house == "none":
             self.theGoal = "shed"
-        # elif self.cow == 0:
-        #    self.theGoal = "cow"
+        elif self.instruments == 0:
+            self.theGoal = "instruments"
+        elif self.cow == 0:
+            self.theGoal = "cow"
         else:
             self.theGoal = "food"
+        if wheet < 7 * self.cow:
+            self.theGoal = "wheet"
 
     def jobbing(self):  # Выбор работы на основе цели
         if self.theGoal == "food":
             self.job = "gathering"
+            if self.instruments > 0:
+                self.job = "wheet"
+        elif self.theGoal == "wheet":
+            if self.instruments == 0:
+                self.requiredMoney = tr.instrumentsCost
+                if self.money >= self.requiredMoney:
+                    self.job = "BuyingInstruments"
+                self.job = "SellingCow"
+            else:
+                self.job = "wheet"
         elif self.theGoal == "shed":
             if self.wood > 10:
-                self.job = "shed"
+                self.job = "BuildingShed"
+            else:
+                self.job = "wood"
+        elif self.theGoal == "instruments":
+            self.requiredMoney = tr.instrumentsCost
+            if self.money >= self.requiredMoney:
+                self.job = "BuyingInstruments"
+            elif self.wood > 0:
+                self.job = "SellingWood"
+            else:
+                self.job = "wood"
+        elif self.theGoal == "cow":
+            self.requiredMoney = tr.cowCost
+            if self.money >= self.requiredMoney:
+                self.job = "BuyingCow"
+            elif self.wood > 0:
+                self.job = "SellingWood"
             else:
                 self.job = "wood"
 
-
     def working(self):  # Работы
+        self.efficiency = 1
+        if self.wife != "none":
+            self.efficiency += 0.5
+        self.efficiency += 0.1*len(self.childs)
+        self.efficiency += 0.1 * self.instruments
         if self.job == "gathering":
-            self.mushrooms += 2 * 0.8
-            pl.incomingMushrooms += 2 * 0.2
+            self.mushrooms += 2 * self.efficiency * 0.8
+            pl.incomingMushrooms += 2 * self.efficiency* 0.2
         elif self.job == "wood":
-            self.wood += 1 * 0.8
-            pl.incomingWood += 1 * 0.2
-        elif self.job == "shed":
+            self.wood += 1 * self.efficiency * 0.8
+            pl.incomingWood += 1 *self.efficiency * 0.2
+        elif self.job == "wheet":
+            self.wheet += 4 * self.efficiency * 0.8
+            pl.incomingWood += 4 *self.efficiency * 0.2
+        elif self.job == "BuildingShed":
             self.wood -= 10
-            self.house = "shed"
+            self.house = "Shed"
+        elif self.job == "BuyingInstruments":
+            tr.buying(self, "instruments", 1)
+        elif self.job == "BuyingCow":
+            tr.buying(self, "cow", 1)
+        elif self.job == "SellingCow":
+            tr.selling(self, "cow", 1)
+        elif self.job == "SellingWood":
+            tr.selling(self,"wood",round(self.requiredMoney//tr.woodCost))
 
 
     def spending(self):  # Расходы и доходы у крестьян
@@ -169,18 +225,18 @@ class pleb(object):
                     self.childs.append(woman())
 
     def yearlyfamilycheck(self):
-        self.age -= 1
+        self.age += 1
         self.deathcheck()
         if self.wife != "none":
             self.wife.age += 1
             if self.wife.deathcheck():
                 self.wife = "none"
         for ch in self.childs:
-            ch.age += 1
+            ch.age += 5
             if ch.age >= 14:
-                if ch is woman:
-                    plebs.append(ch)
-                if ch is pleb:
+                if ch.sex == "female":
+                    brides.append(ch)
+                if ch.sex == "male":
                     plebs.append(ch)
                 self.childs.remove(ch)
 
@@ -189,7 +245,6 @@ class pleb(object):
         if random.randint(0,100)+1 <= self.age-40:
             Dead = True
         return Dead
-
 
     def rounding(self):
         self.wheet = round(self.wheet, 1)
@@ -200,27 +255,27 @@ class pleb(object):
 
 class trader(object):
     def __init__(self):
-        money = 30
+        self.money = 100
         self.maxcargo = 10
         self.wheet = 0
         self.wood = 0
         self.milk = 0
         self.mushrooms = 0
-        self.cow = 5
+        self.cow = 3
+        self.instruments = 3
         self.wheetCost = 1
         self.woodCost = 2
         self.milkCost = 2
         self.mushroomsCost = 1.5
         self.cowCost = 10
+        self.instrumentsCost = 5
 
     def generateGoods(self):
         number = []
         freecargo = self.maxcargo
         for i in range(4):
             num = random.randint(1, self.maxcargo * 0.5) % freecargo
-            print(freecargo)
             number.append(num)
-            print(num)
             freecargo -= num
         self.wheet += number[0]
         self.wood += number[1]
@@ -228,14 +283,92 @@ class trader(object):
         self.mushrooms += number[3]
 
     def buying(self,buyer,goods,amount):
-        if goods == "cow":
+        print("Покупка",buyer.name,goods,amount)
+        if goods == "wheet":
+            if buyer.money - self.wheetCost * amount >= 0 and self.wheet - amount >= 0 :
+                print("wheet")
+                buyer.money -= self.wheetCost * amount
+                self.money += self.wheetCost * amount
+                buyer.wheet += amount
+                self.wheet -= amount
+        elif goods == "wood":
+            if buyer.money - self.woodCost * amount >= 0 and self.wood - amount >= 0 :
+                print("wood")
+                buyer.money -= self.woodCost * amount
+                self.money += self.woodCost * amount
+                buyer.wood += amount
+                self.wood -= amount
+        elif goods == "milk":
+            if buyer.money - self.milkCost * amount >= 0 and self.milk - amount >= 0 :
+                print("milk")
+                buyer.money -= self.milkCost * amount
+                self.money += self.milkCost * amount
+                buyer.milk += amount
+                self.milk -= amount
+        elif goods == "mushrooms":
+            if buyer.money - self.mushroomsCost * amount >= 0 and self.mushrooms - amount >= 0 :
+                print("mushrooms")
+                buyer.money -= self.mushroomsCost * amount
+                self.money += self.mushroomsCost * amount
+                buyer.mushrooms += amount
+                self.mushrooms -= amount
+        elif goods == "cow":
             if buyer.money - self.cowCost * amount >= 0 and self.cow - amount >= 0 :
+                print("cow")
                 buyer.money -= self.cowCost * amount
                 self.money += self.cowCost * amount
-                bueyr.cow += amount
+                buyer.cow += amount
                 self.cow -= amount
+        elif goods == "instruments":
+            if buyer.money - self.instrumentsCost * amount >= 0 and self.instruments - amount >= 0 :
+                print("instrument")
+                buyer.money -= self.instrumentsCost * amount
+                self.money += self.instrumentsCost * amount
+                buyer.instruments += amount
+                self.instruments -= amount
+        else:
+            print("EXEPTION")
 
-
+    def selling(self,seller,goods,amount):
+        print("Продажа", seller.name, goods, amount)
+        if goods == "wheet":
+            if self.money - self.wheetCost * amount >= 0 and seller.wheet - amount >= 0 :
+                seller.money += self.wheetCost * amount
+                self.money -= self.wheetCost * amount
+                seller.wheet -= amount
+                self.wheet += amount
+        elif goods == "wood":
+            if self.money - self.woodCost * amount >= 0 and seller.wood - amount >= 0 :
+                seller.money += self.woodCost * amount
+                self.money -= self.woodCost * amount
+                seller.wood -= amount
+                self.wood += amount
+        elif goods == "milk":
+            if self.money - self.milkCost * amount >= 0 and seller.milk - amount >= 0 :
+                seller.money += self.milkCost * amount
+                self.money -= self.milkCost * amount
+                seller.milk -= amount
+                self.milk += amount
+        elif goods == "mushrooms":
+            if self.money - self.mushroomsCost * amount >= 0 and seller.mushrooms - amount >= 0 :
+                seller.money += self.mushroomsCost * amount
+                self.money -= self.mushroomsCost * amount
+                seller.mushrooms -= amount
+                self.mushrooms += amount
+        elif goods == "cow":
+            if self.money - self.cowCost * amount >= 0 and seller.cow - amount >= 0:
+                seller.money += self.cowCost * amount
+                self.money -= self.cowCost * amount
+                seller.cow -= amount
+                self.cow += amount
+        elif goods == "instruments":
+            if self.money - self.instrumentsCost * amount >= 0 and seller.instruments - amount >= 0:
+                seller.money += self.instrumentsCost * amount
+                self.money -= self.instrumentsCost * amount
+                seller.instruments -= amount
+                self.instruments += amount
+        else:
+            print("Ошибка")
 
 tr = trader()
 
@@ -268,8 +401,8 @@ while exit == 0:
             if p.wife != "none":
                 wife = p.wife.name
             print(
-            "№", i, "Имя:", p.name + " " * (9 - len(p.name)),"Возраст:",p.age, "Жена:", wife,"Работа:", p.job, "Деньги:", p.money)
-            print("Дом:", p.house, "Коровы:", p.cow, "|Гр:", p.mushrooms, "|Пш:", p.wheet, "|Млк:", p.milk, "|Др:", p.wood, "|")
+            "№", i, "Имя:", p.name + " " * (9 - len(p.name)),"|Дом:", p.house, "Коровы:", p.cow,"Инструменты:", p.instruments,"|Гр:", p.mushrooms, "|Пш:", p.wheet, "|Млк:", p.milk, "|Др:", p.wood, "|")
+            print("Возраст:",p.age,"Жена:", wife,"Дети:", len(p.childs),"Работа:", p.job, "Деньги:", p.money)
             i = i + 1
         print("---")
         print("find №# - Инфа по номеру")
@@ -279,7 +412,7 @@ while exit == 0:
     elif state == "BRIDELIST":
         i = 0
         for p in brides:
-            print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Возраст:", p.age)
+            print("№",i, "Имя:", p.name + " " * (9 - len(p.name)), "Возраст:", p.age)
             i = i + 1
 
     elif state == "STATUS":
@@ -297,10 +430,30 @@ while exit == 0:
         print("Вы уверенны что хотите закончить неделю?(Y/N)")
 
     elif state == "TRADE":
-        tr.generateGoods()
-        print("Вещи торговца -|Грибы:", tr.mushrooms, "|Пшеница:", tr.wheet, "|")
+        print("Вещи торговца(",tr.money,")")
+        print("|Грибы:", tr.mushrooms, "|Пшеница:", tr.wheet, "|")
         print("|Молоко:", tr.milk, "|Дрова:", tr.wood, "|")
-        print("1 - Купить корову")
+        print("|Коровы:", tr.cow, "|Интсрументы:", tr.instrumentsCost, "|")
+        print("B - Купить")
+        print("S - Продать")
+        print("1 - Выйти")
+
+    elif state == "BUYLIST":
+        print("Цена покупки ")
+        print("|Грибы(MSH):", tr.mushroomsCost, "|Пшеница(WHT:", tr.wheetCost, "|")
+        print("|Молоко(MLK):", tr.milkCost, "|Дрова(WOD):", tr.woodCost, "|")
+        print("|Коровы(COW):", tr.cowCost, "|Интсрументы(INS):", tr.instrumentsCost, "|")
+        print("Пример -[COW 1]")
+        print("1 - Выйти")
+
+    elif state == "SELLLIST":
+        print("Цена продажи ")
+        print("|Грибы(MSH):", tr.mushroomsCost, "|Пшеница(WHT):", tr.wheetCost, "|")
+        print("|Молоко(MLK):", tr.milkCost, "|Дрова(WOD):", tr.woodCost, "|")
+        print("|Коровы(COW):", tr.cowCost, "|Интсрументы(INS):", tr.instrumentsCost, "|")
+        print("Пример -[MSH 1]")
+        print("1 - Выйти")
+
     word = input()
 
     clear(20)
@@ -351,7 +504,46 @@ while exit == 0:
         state = "MAIN"
 
     elif state == "TRADE":
-        state = "MAIN"
+        if word == "b":
+            state = "BUYLIST"
+        if word == "s":
+            state = "SELLLIST"
+        if word == "1":
+            state = "MAIN"
+
+    elif state == "BUYLIST":
+        if word[0:3] == "MSH":
+            tr.buying(pl,"mushrooms",int(word[4:]))
+        elif word[0:3] == "WHT":
+            tr.buying(pl,"wheet",int(word[4:]))
+        elif word[0:3] == "MLK":
+            tr.buying(pl,"milk",int(word[4:]))
+        elif word[0:3] == "WOD":
+            tr.buying(pl,"wood",int(word[4:]))
+        elif word[0:3] == "COW":
+            tr.buying(pl,"cow",int(word[4:]))
+        elif word[0:3] == "INS":
+            tr.buying(pl,"instruments",int(word[4:]))
+        elif word == "1":
+            state = "TRADE"
+        else:
+            print("Mistake")
+
+    elif state == "SELLLIST":
+        if word[0:3] == "MSH":
+            tr.selling(pl,"mushrooms",int(word[4:]))
+        elif word[0:3] == "WHT":
+            tr.selling(pl,"wheet",int(word[4:]))
+        if word[0:3] == "MLK":
+            tr.selling(pl,"milk",int(word[4:]))
+        elif word[0:3] == "WOD":
+            tr.selling(pl,"wood",int(word[4:]))
+        if word[0:3] == "COW":
+            tr.selling(pl,"cow",int(word[4:]))
+        elif word[0:3] == "INS":
+            tr.selling(pl,"instruments",int(word[4:]))
+        elif word == "1":
+            state = "TRADE"
 
     elif state == "BRIDELIST":
         state = "MAIN"
@@ -364,6 +556,7 @@ while exit == 0:
             i.working()
             i.spending()
             i.rounding()
+            i.familycheck()
         pl.spending()
         pl.dayEnding()
         pl.rounding()
