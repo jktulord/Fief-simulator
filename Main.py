@@ -33,6 +33,14 @@ class player(object):
         self.mushrooms = 0
         self.instruments = 0
         self.cow = 0
+        self.food = 0
+        self.FoodRes = {"wheet":Foodlist["wheet"].amountChange(20),"berries":Foodlist["berries"].amountChange(0),
+                        "mushrooms":Foodlist["mushrooms"].amountChange(0),"milk":Foodlist["milk"].amountChange(0)}
+        self.FoodResIncoming = {"wheet":Foodlist["wheet"].amountChange(0),"berries":Foodlist["berries"].amountChange(0),
+                                "mushrooms":Foodlist["mushrooms"].amountChange(0),"milk":Foodlist["milk"].amountChange(0)}
+        self.MaterialRes = {"wood":MateriaList["wood"].amountChange(200),"instruments":MateriaList["instruments"].amountChange(0)}
+        self.MaterialResIncoming = {"wood": MateriaList["wood"].amountChange(0),
+                            "instruments": MateriaList["instruments"].amountChange(0)}
         self.freeSpace = self.house.freeSpace
         self.capacity = self.house.capacity
         self.cowCapacity = self.house.cowCapacity
@@ -43,26 +51,28 @@ class player(object):
         self.inProgress = "none"
         self.daysInProgress = 0
 
+    def foodCounting(self):
+        self.food = 0
+        for key in self.FoodRes:
+            self.food += self.FoodRes[key].amount
+
     def spending(self):
         foodSpending = 1
         for i in range(0,foodSpending):
-            if self.wheet > 0:
-                self.wheet -= 1
-            elif self.mushrooms > 0:
-                self.mushrooms -= 1
-            elif self.milk > 0:
-                self.milk -= 1
-        self.wheet -= self.cow
+            for key in self.FoodRes:
+                if self.FoodRes[key] >= 1:
+                    self.FoodRes[key].amount -= 1
+                    break
+        self.FoodRes["wheet"].amount -= self.cow
 
     def profiting(self):
-        self.milk += self.cow * 1.5
+        FoodRes["milk"].amount += self.cow * 1.5
 
     def rotting(self):
-        if self.capacity < self.milk+self.mushrooms+self.wood+self.wheet:
-            self.milk -= (self.milk // self.capacity) * self.milk * 0.1
-            self.wheet -= (self.wheet // self.capacity) * self.wheet * 0.1
-            self.wood -= (self.wood // self.capacity) * self.wood * 0.1
-            self.mushrooms -= (self.mushrooms // self.capacity) * self.mushrooms * 0.1
+        if self.capacity < self.food:
+            for key in self.FoodRes:
+                self.FoodRes[key] -= (self.FoodRes[key] // self.capacity) * (self.capacity - self.FoodRes[key]) * 0.1
+                print("Гниение",key,(self.FoodRes[key] // self.capacity) * (self.capacity - self.FoodRes[key]) * 0.1)
 
     def dayEnding(self):
         self.day += 1
@@ -71,52 +81,52 @@ class player(object):
         if self.day == 8:
             self.day = 1
             self.week += 1
-            self.wheet += self.incomingWheet
-            self.wood += self.incomingWood
-            self.milk += self.incomingMilk
-            self.mushrooms += self.incomingMushrooms
-            self.instruments = 0
+            for key in self.FoodRes:
+                self.FoodRes[key].amount += self.FoodResIncoming[key].amount
+                self.FoodResIncoming[key].amount = 0
+            for key in self.MaterialRes:
+                self.MaterialRes[key].amount += self.MaterialResIncoming[key].amount
+                self.MaterialResIncoming[key].amount = 0
             self.cow = 0
-            self.incomingWheet = 0
-            self.incomingWood = 0
-            self.incomingMilk = 0
-            self.incomingMushrooms = 0
             tr.generateGoods()
             for p in plebs:
                 p.yearlyfamilycheck()
 
     def rounding(self):
-        self.wheet = round(self.wheet, 1)
-        if self.wheet < 0:
-            self.wheet = 0
-        self.wood = round(self.wood, 1)
-        if self.wood < 0:
-            self.wood = 0
-        self.milk = round(self.milk, 1)
-        if self.milk < 0:
-            self.milk = 0
-        self.mushrooms = round(self.mushrooms, 1)
-        if self.mushrooms < 0:
-            self.mushrooms = 0
-        self.incomingWheet = round(self.incomingWheet, 1)
-        self.incomingWood = round(self.incomingWood, 1)
-        self.incomingMilk = round(self.incomingMilk, 1)
-        self.incomingMushrooms = round(self.incomingMushrooms, 1)
+        for key in self.FoodRes:
+            self.FoodRes[key].rounding()
+        for key in self.MaterialRes:
+            self.MaterialRes[key].rounding()
+        for key in self.FoodResIncoming:
+            self.FoodResIncoming[key].rounding()
+        for key in self.MaterialResIncoming:
+            self.MaterialResIncoming[key].rounding()
 
     def build(self, Building):
-        if self.inProgress == "none" and self.wood - Building.woodCost >= 0:
+        if self.inProgress == "none" and self.buildCostCheck(Building.RequiredResources):
             if Building.type == "main" and Building.tier > self.house.tier:
                 self.inProgress = Building
                 self.daysInProgress = Building.buildTime
-                self.wood -= Building.woodCost
+                self.buildCostSubstraction(Building.RequiredResources)
             elif Building.type == "adds" and self.freespace > 1:
                 self.freespace -= 1
                 self.inProgress = Building
                 self.daysInProgress = Building.buildTime
-                self.wood -= Building.woodCost
-
+                self.buildCostSubstraction(Building.RequiredResources)
         else:
             print("НЕКОРЕКТНО")
+
+    def buildCostCheck(self,RequiredResources):
+        Check = False
+        for key in RequiredResources:
+            if RequiredResources[key].amount <= self.MaterialRes[key].amount:
+                Check = True
+                break
+        return Check
+
+    def buildCostSubstraction(self,RequiredResources):
+        for key in RequiredResources:
+            self.MaterialRes[key].amount -= RequiredResources[key].amount
 
     def progressing(self):
         if self.inProgress != "none":
@@ -140,12 +150,43 @@ class player(object):
             self.capacity += i.capacity
             self.cowCapacity += i.cowCapacity
 
+class resource(object):
+    def __init__(self, name, type, keyword, tier, amount = 0):
+        self.name = name
+        self.type = type
+        self.keyword = keyword
+        self.tier = tier
+        self.amount = amount
+
+    def amountChange(self,amount):
+        self.amount += amount
+        return self
+
+    def rounding(self):
+        self.amount = round(self.amount,1)
+        if self.amount < 0:
+            self.amount = 0
+
+wheet = resource("wheet","food", "WHT", tier = 1)
+mushrooms = resource("mushrooms","food", "MSH", tier = 1)
+berries = resource("berries","food", "BRY", tier = 1)
+milk = resource("milk","food", "MLK", tier = 2)
+
+wood = resource("wood","building material","WOD", tier = 1)
+
+instruments = resource("instruments", "craftable", "INS", tier = 2)
+
+
+FoodList = {'wheet':wheet,'mushrooms':mushrooms,'berries':berries,'milk':milk}
+MaterialList = {'wood':wood,'instruments':instruments}
+print(CraftableList['instruments'].name)
+
 class building(object):
-    def __init__(self, name, type, wood, rooms = 0, buildTime = 0, capacity = 0, tier = 1, freeSpace = 0, cowCapacity = 0):
+    def __init__(self, name, type, RequiredResources, rooms = 0, buildTime = 0, capacity = 0, tier = 1, freeSpace = 0, cowCapacity = 0):
         self.name = name
         self.type = type # main, adds or houses
         self.tier = tier
-        self.woodCost = wood
+        self.RequiredResources = RequiredResources
         self.rooms = rooms
         self.buildTime = buildTime
         self.capacity = capacity
@@ -153,15 +194,15 @@ class building(object):
         self.freeSpace = freeSpace
 
 
-Mansion_lv1 = building("Mansion_lv1", "main", wood=10, rooms=1, buildTime=3,capacity=300, freeSpace=1, tier=1)
-Mansion_lv2 = building("Mansion_lv2", "main", wood=100, rooms=2, buildTime=3,capacity=500, freeSpace=2, tier=2)
-Mansion_lv3 = building("Mansion_lv3", "main", wood=400, rooms=3, buildTime=7,capacity=1250, freeSpace=5, tier=3)
-Mansion_lv4 = building("Mansion_lv3", "main", wood=900, rooms=4, buildTime=9,capacity=2250, freeSpace=8, tier=4)
-Mansion_lv5 = building("Mansion_lv3", "main", wood=1500, rooms=5, buildTime=13,capacity=5000, freeSpace=14, tier=5)
-Storage_lv1 = building("Storage_lv1", "adds", wood=100, rooms=0, buildTime=2,capacity=500, tier=1)
-Storage_lv2 = building("Storage_lv2", "adds", wood=300, rooms=0, buildTime=2,capacity=1250, tier=1)
-Barn_lv1 = building("Barn_lv1", "adds", wood=150, cowCapacity=3, buildTime=2, tier=1)
-Dorm_lv1 = building("Dorm_lv1", "adds", wood=150, rooms=2, buildTime=2, tier=1)
+Mansion_lv1 = building("Mansion_lv1", "main", RequiredResources={MaterialList['wood'].amountChange(10)}, rooms=1, buildTime=3,capacity=300, freeSpace=1, tier=1)
+Mansion_lv2 = building("Mansion_lv2", "main", RequiredResources={MaterialList['wood'].amountChange(100)}, rooms=2, buildTime=3,capacity=500, freeSpace=2, tier=2)
+Mansion_lv3 = building("Mansion_lv3", "main", RequiredResources={MaterialList['wood'].amountChange(400)}, rooms=3, buildTime=7,capacity=1250, freeSpace=5, tier=3)
+Mansion_lv4 = building("Mansion_lv3", "main", RequiredResources={MaterialList['wood'].amountChange(900)}, rooms=4, buildTime=9,capacity=2250, freeSpace=8, tier=4)
+Mansion_lv5 = building("Mansion_lv3", "main", RequiredResources={MaterialList['wood'].amountChange(1500)}, rooms=5, buildTime=13,capacity=5000, freeSpace=14, tier=5)
+Storage_lv1 = building("Storage_lv1", "adds", RequiredResources={MaterialList['wood'].amountChange(100)}, rooms=0, buildTime=2,capacity=500, tier=1)
+Storage_lv2 = building("Storage_lv2", "adds", RequiredResources={MaterialList['wood'].amountChange(300)}, rooms=0, buildTime=2,capacity=1250, tier=1)
+Barn_lv1 = building("Barn_lv1", "adds", RequiredResources={MaterialList['wood'].amountChange(150)}, cowCapacity=3, buildTime=2, tier=1)
+Dorm_lv1 = building("Dorm_lv1", "adds", RequiredResources={MaterialList['wood'].amountChange(150)}, rooms=2, buildTime=2, tier=1)
 
 buildlist = [Mansion_lv1, Mansion_lv2, Mansion_lv3,Mansion_lv4,Mansion_lv5,Storage_lv1,Storage_lv2,Barn_lv1,Dorm_lv1]
 
@@ -203,6 +244,9 @@ class pleb(object):
             self.wife = woman()
         if type == "Child":
             self.age = 1
+        self.FoodRes = {"wheet": Foodlist["wheet"].amountChange(5), "berries": Foodlist["berries"].amountChange(0),
+                        "mushrooms": Foodlist["mushrooms"].amountChange(0),
+                        "milk": Foodlist["milk"].amountChange(0)}
         self.wheet = 5
         self.wood = 0
         self.milk = 0
