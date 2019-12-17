@@ -87,9 +87,17 @@ class player(object):
 
     def rounding(self):
         self.wheet = round(self.wheet, 1)
+        if self.wheet < 0:
+            self.wheet = 0
         self.wood = round(self.wood, 1)
+        if self.wood < 0:
+            self.wood = 0
         self.milk = round(self.milk, 1)
+        if self.milk < 0:
+            self.milk = 0
         self.mushrooms = round(self.mushrooms, 1)
+        if self.mushrooms < 0:
+            self.mushrooms = 0
         self.incomingWheet = round(self.incomingWheet, 1)
         self.incomingWood = round(self.incomingWood, 1)
         self.incomingMilk = round(self.incomingMilk, 1)
@@ -133,7 +141,7 @@ class player(object):
             self.cowCapacity += i.cowCapacity
 
 class building(object):
-    def __init__(self, name, type, wood, rooms, buildTime, capacity, tier, freeSpace = 0, cowCapacity = 0):
+    def __init__(self, name, type, wood, rooms = 0, buildTime = 0, capacity = 0, tier = 1, freeSpace = 0, cowCapacity = 0):
         self.name = name
         self.type = type # main, adds or houses
         self.tier = tier
@@ -145,13 +153,17 @@ class building(object):
         self.freeSpace = freeSpace
 
 
-Mansion_lv1 = building("Mansion_lv1", "main", wood=10, rooms=1, buildTime=3,capacity=200, freeSpace=1, tier=1)
-Mansion_lv2 = building("Mansion_lv2", "main", wood=100, rooms=2, buildTime=3,capacity=300, freeSpace=2, tier=2)
-Mansion_lv3 = building("Mansion_lv3", "main", wood=500, rooms=5, buildTime=7,capacity=1000, freeSpace=5, tier=3)
-Storage_lv1 = building("Storage", "adds", wood=100, rooms=0, buildTime=2,capacity=200, tier=1)
-Storage_lv2 = building("Storage2", "adds", wood=750, rooms=0, buildTime=2,capacity=1250, tier=1)
+Mansion_lv1 = building("Mansion_lv1", "main", wood=10, rooms=1, buildTime=3,capacity=300, freeSpace=1, tier=1)
+Mansion_lv2 = building("Mansion_lv2", "main", wood=100, rooms=2, buildTime=3,capacity=500, freeSpace=2, tier=2)
+Mansion_lv3 = building("Mansion_lv3", "main", wood=400, rooms=3, buildTime=7,capacity=1250, freeSpace=5, tier=3)
+Mansion_lv4 = building("Mansion_lv3", "main", wood=900, rooms=4, buildTime=9,capacity=2250, freeSpace=8, tier=4)
+Mansion_lv5 = building("Mansion_lv3", "main", wood=1500, rooms=5, buildTime=13,capacity=5000, freeSpace=14, tier=5)
+Storage_lv1 = building("Storage_lv1", "adds", wood=100, rooms=0, buildTime=2,capacity=500, tier=1)
+Storage_lv2 = building("Storage_lv2", "adds", wood=300, rooms=0, buildTime=2,capacity=1250, tier=1)
+Barn_lv1 = building("Barn_lv1", "adds", wood=150, cowCapacity=3, buildTime=2, tier=1)
+Dorm_lv1 = building("Dorm_lv1", "adds", wood=150, rooms=2, buildTime=2, tier=1)
 
-buildlist = [Mansion_lv1, Mansion_lv2, Mansion_lv3, Storage_lv1,Storage_lv2]
+buildlist = [Mansion_lv1, Mansion_lv2, Mansion_lv3,Mansion_lv4,Mansion_lv5,Storage_lv1,Storage_lv2,Barn_lv1,Dorm_lv1]
 
 pl = player()
 
@@ -183,6 +195,7 @@ class pleb(object):
         self.job = "none"
         self.house = "none"
         self.cow = 0
+        self.cowCapacity = 99
         if type == "HasCow":
             self.cow = 1
         if type == "HasHouse":
@@ -319,7 +332,7 @@ class pleb(object):
 
     def familycheck(self):
         if self.wife != "none":
-            if random.randint(0, 100) + 1 <= 20:
+            if random.randint(0, 100) + 1 <= 5:
                 if random.randint(0, 100) + 1 >= 50:
                     self.childs.append(pleb(0, "Child"))
                 else:
@@ -357,7 +370,7 @@ class pleb(object):
 class trader(object):
     def __init__(self):
         self.money = 100
-        self.maxcargo = 10
+        self.maxcargo = 100
         self.wheet = 0
         self.wood = 0
         self.milk = 0
@@ -372,7 +385,7 @@ class trader(object):
         self.instrumentsCost = 5
 
     def generateGoods(self):
-        self.money += (self.wheet + self.milk + self.wood + self.mushrooms) * 10
+        self.money += (self.wheet + self.milk + self.wood + self.mushrooms)
         number = []
         self.instruments += (random.randint(1,30))
         self.cow += (random.randint(1,31))
@@ -388,9 +401,17 @@ class trader(object):
 
     def rounding(self):
         self.wheet = round(self.wheet, 1)
+        if self.wheet < 0:
+            self.wheet = 0
         self.wood = round(self.wood, 1)
+        if self.wood < 0:
+            self.wood = 0
         self.milk = round(self.milk, 1)
+        if self.milk < 0:
+            self.milk = 0
         self.mushrooms = round(self.mushrooms, 1)
+        if self.mushrooms < 0:
+            self.mushrooms = 0
         self.money = round(self.money, 1)
 
 
@@ -422,7 +443,7 @@ class trader(object):
                 buyer.mushrooms += amount
                 self.mushrooms -= amount
         elif goods == "cow":
-            if buyer.money - self.cowCost * amount >= 0 and self.cow - amount >= 0 :
+            if buyer.money - self.cowCost * amount >= 0 and self.cow - amount >= 0 and buyer.cowCapacity >= buyer.cow + amount :
                 buyer.money -= self.cowCost * amount
                 self.money += self.cowCost * amount
                 buyer.cow += amount
@@ -483,7 +504,7 @@ tr = trader()
 while exit == 0:
 
     if state == "MENU":  # стейт меню
-        print("-v0.1.0 - добавлины строения")
+        print("-v0.1.1 - BUILDINGS Update")
         print("Симулятор Дворянина")
         print("1 - начать игру")
         print("2 - выйти")
@@ -544,15 +565,15 @@ while exit == 0:
         i = 0
         for p in buildlist:
             if p.type == "main":
-                if pl.house.tier < p.tier:
+                if p.tier == 1 + pl.house.tier:
                     print("Основное здание:")
                     print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Cовбодные комнаты:", p.rooms,)
                     print("Время постройки:", p.buildTime, "Вместимость:", p.capacity)
                     print("Доп. здание---------------------------------------")
             elif p.type == "adds":
                 print(
-                "№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Cовбодные комнаты:", p.rooms,)
-                print("Время постройки:", p.buildTime, "Вместимость:", p.capacity)
+                "№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Cовбодные комнаты:", p.rooms)
+                print("Время постройки:", p.buildTime, "Вместимость:", p.capacity,"Места для скота:", p.cowCapacity)
                 print("------------------------------------------------------")
             i = i + 1
 
@@ -560,7 +581,7 @@ while exit == 0:
         print("Основное строение:")
         print("Имя:", pl.house.name + " " * (9 - len(pl.house.name)), "Стоимость:", pl.house.woodCost, "Cовбодные комнаты:",pl.house.rooms)
         print("Вместимость:", pl.house.capacity, "Сободного места для пристроек:", pl.house.freeSpace, "Уровень:", pl.house.tier )
-        print("Место для скота:", pl.cowCapacity)
+        print("Всего места для скота:", pl.cowCapacity)
         print("Доп. здание---------------------------------------")
         for p in pl.adds:
             print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Дополнительные комнаты:",
