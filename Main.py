@@ -156,14 +156,18 @@ class building(object):
 Mansion_lv1 = building("Mansion_lv1", "main", wood=10, rooms=1, buildTime=3,capacity=300, freeSpace=1, tier=1)
 Mansion_lv2 = building("Mansion_lv2", "main", wood=100, rooms=2, buildTime=3,capacity=500, freeSpace=2, tier=2)
 Mansion_lv3 = building("Mansion_lv3", "main", wood=400, rooms=3, buildTime=7,capacity=1250, freeSpace=5, tier=3)
-Mansion_lv4 = building("Mansion_lv3", "main", wood=900, rooms=4, buildTime=9,capacity=2250, freeSpace=8, tier=4)
-Mansion_lv5 = building("Mansion_lv3", "main", wood=1500, rooms=5, buildTime=13,capacity=5000, freeSpace=14, tier=5)
+Mansion_lv4 = building("Mansion_lv4", "main", wood=900, rooms=4, buildTime=9,capacity=2250, freeSpace=8, tier=4)
+Mansion_lv5 = building("Mansion_lv5", "main", wood=1500, rooms=5, buildTime=13,capacity=5000, freeSpace=14, tier=5)
+Mansion_lv6 = building("Mansion_lv6", "main", wood=3500, rooms=5, buildTime=15,capacity=10000, freeSpace=18, tier=6)
 Storage_lv1 = building("Storage_lv1", "adds", wood=100, rooms=0, buildTime=2,capacity=500, tier=1)
-Storage_lv2 = building("Storage_lv2", "adds", wood=300, rooms=0, buildTime=2,capacity=1250, tier=1)
+Storage_lv2 = building("Storage_lv2", "adds", wood=350, rooms=0, buildTime=4,capacity=1250, tier=2)
+Storage_lv3 = building("Storage_lv3", "adds", wood=750, rooms=0, buildTime=5,capacity=2500, tier=3)
 Barn_lv1 = building("Barn_lv1", "adds", wood=150, cowCapacity=3, buildTime=2, tier=1)
+Barn_lv2 = building("Barn_lv2", "adds", wood=150, cowCapacity=3, buildTime=2, tier=2)
 Dorm_lv1 = building("Dorm_lv1", "adds", wood=150, rooms=2, buildTime=2, tier=1)
+Dorm_lv2 = building("Dorm_lv2", "adds", wood=150, rooms=4, buildTime=4, tier=2)
 
-buildlist = [Mansion_lv1, Mansion_lv2, Mansion_lv3,Mansion_lv4,Mansion_lv5,Storage_lv1,Storage_lv2,Barn_lv1,Dorm_lv1]
+buildlist = [Mansion_lv1, Mansion_lv2, Mansion_lv3,Mansion_lv4,Mansion_lv5,Mansion_lv6,Storage_lv1,Storage_lv2,Storage_lv3,Barn_lv1,Barn_lv2,Dorm_lv1,Dorm_lv2]
 
 pl = player()
 
@@ -568,9 +572,9 @@ while exit == 0:
                 if p.tier == 1 + pl.house.tier:
                     print("Основное здание:")
                     print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Cовбодные комнаты:", p.rooms,)
-                    print("Время постройки:", p.buildTime, "Вместимость:", p.capacity)
+                    print("Время постройки:", p.buildTime, "Вместимость:", p.capacity,"Максимальное количество пристроек:",p.freeSpace)
                     print("Доп. здание---------------------------------------")
-            elif p.type == "adds":
+            elif p.type == "adds" and p.tier < pl.house.tier:
                 print(
                 "№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Cовбодные комнаты:", p.rooms)
                 print("Время постройки:", p.buildTime, "Вместимость:", p.capacity,"Места для скота:", p.cowCapacity)
