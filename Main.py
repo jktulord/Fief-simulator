@@ -27,42 +27,39 @@ class player(object):
         self.adds = []
         self.day = 1
         self.week = 0
-        self.wheet = 20
-        self.wood = 300
-        self.milk = 0
-        self.mushrooms = 0
-        self.instruments = 0
         self.cow = 0
+        self.food = 0
+        self.Resources = setResources(wheet = 20,wood = 300)
+        self.ResourceIncoming = setResources()
         self.freeSpace = self.house.freeSpace
         self.capacity = self.house.capacity
         self.cowCapacity = self.house.cowCapacity
-        self.incomingWheet = 0
-        self.incomingWood = 0
-        self.incomingMilk = 0
-        self.incomingMushrooms = 0
         self.inProgress = "none"
         self.daysInProgress = 0
+
+    def foodCounting(self):
+        self.food = 0
+        for key in self.Resources:
+            if self.Resources[key].type == "food":
+                self.food += self.Resources[key].amount
 
     def spending(self):
         foodSpending = 1
         for i in range(0,foodSpending):
-            if self.wheet > 0:
-                self.wheet -= 1
-            elif self.mushrooms > 0:
-                self.mushrooms -= 1
-            elif self.milk > 0:
-                self.milk -= 1
-        self.wheet -= self.cow
+            for key in self.Resources:
+                if self.Resources[key].amount >= 1 and self.Resources[key].type == "food":
+                    self.Resources[key].amount -= 1
+                    break
+        self.Resources["wheet"].amount -= self.cow
 
     def profiting(self):
-        self.milk += self.cow * 1.5
+        self.Resources["milk"].amount += self.cow * 1.5
 
     def rotting(self):
-        if self.capacity < self.milk+self.mushrooms+self.wood+self.wheet:
-            self.milk -= (self.milk // self.capacity) * self.milk * 0.1
-            self.wheet -= (self.wheet // self.capacity) * self.wheet * 0.1
-            self.wood -= (self.wood // self.capacity) * self.wood * 0.1
-            self.mushrooms -= (self.mushrooms // self.capacity) * self.mushrooms * 0.1
+        if self.capacity < self.food:
+            for key in self.Resources:
+                self.Resources[key] -= (self.Resources[key] // self.capacity) * (self.capacity - self.Resources[key]) * 0.1
+                print("Гниение", key, (self.Resources[key] // self.capacity) * (self.capacity - self.Resources[key]) * 0.1)
 
     def dayEnding(self):
         self.day += 1
@@ -71,52 +68,48 @@ class player(object):
         if self.day == 8:
             self.day = 1
             self.week += 1
-            self.wheet += self.incomingWheet
-            self.wood += self.incomingWood
-            self.milk += self.incomingMilk
-            self.mushrooms += self.incomingMushrooms
-            self.instruments = 0
+            for key in self.Resources:
+                self.Resources[key].amount += self.ResourceIncoming[key].amount
+                self.ResourceIncoming[key].amount = 0
+            for key in self.Resources:
+                self.Resources[key].amount += self.ResourceIncoming[key].amount
+                self.ResourceIncoming[key].amount = 0
             self.cow = 0
-            self.incomingWheet = 0
-            self.incomingWood = 0
-            self.incomingMilk = 0
-            self.incomingMushrooms = 0
             tr.generateGoods()
             for p in plebs:
                 p.yearlyfamilycheck()
 
     def rounding(self):
-        self.wheet = round(self.wheet, 1)
-        if self.wheet < 0:
-            self.wheet = 0
-        self.wood = round(self.wood, 1)
-        if self.wood < 0:
-            self.wood = 0
-        self.milk = round(self.milk, 1)
-        if self.milk < 0:
-            self.milk = 0
-        self.mushrooms = round(self.mushrooms, 1)
-        if self.mushrooms < 0:
-            self.mushrooms = 0
-        self.incomingWheet = round(self.incomingWheet, 1)
-        self.incomingWood = round(self.incomingWood, 1)
-        self.incomingMilk = round(self.incomingMilk, 1)
-        self.incomingMushrooms = round(self.incomingMushrooms, 1)
+        for key in self.Resources:
+            self.Resources[key].rounding()
+        for key in self.ResourceIncoming:
+            self.ResourceIncoming[key].rounding()
 
     def build(self, Building):
-        if self.inProgress == "none" and self.wood - Building.woodCost >= 0:
+        if self.inProgress == "none" and self.buildCostCheck(Building.RequiredResources):
             if Building.type == "main" and Building.tier > self.house.tier:
                 self.inProgress = Building
                 self.daysInProgress = Building.buildTime
-                self.wood -= Building.woodCost
+                self.buildCostSubstraction(Building.RequiredResources)
             elif Building.type == "adds" and self.freespace > 1:
                 self.freespace -= 1
                 self.inProgress = Building
                 self.daysInProgress = Building.buildTime
-                self.wood -= Building.woodCost
-
+                self.buildCostSubstraction(Building.RequiredResources)
         else:
             print("НЕКОРЕКТНО")
+
+    def buildCostCheck(self,RequiredResources):
+        Check = False
+        for key in RequiredResources:
+            if RequiredResources[key].amount <= self.Resources[key].amount:
+                Check = True
+                break
+        return Check
+
+    def buildCostSubstraction(self,RequiredResources):
+        for key in RequiredResources:
+            self.Resources[key].amount -= RequiredResources[key].amount
 
     def progressing(self):
         if self.inProgress != "none":
@@ -140,12 +133,45 @@ class player(object):
             self.capacity += i.capacity
             self.cowCapacity += i.cowCapacity
 
+class resource(object):
+    def __init__(self, name, type, keyword, tier, amount = 0, baseCost = 0):
+        self.name = name
+        self.type = type
+        self.keyword = keyword
+        self.tier = tier
+        self.amount = amount
+        self.baseCost = baseCost
+
+    def amountChange(self,amount):
+        Kek = self
+        Kek.amount = amount
+        return Kek
+
+    def rounding(self):
+        self.amount = round(self.amount,1)
+        if self.amount < 0:
+            self.amount = 0
+
+def setResources(wheet = 0,berries = 0,mushrooms = 0,milk = 0,wood = 0,instruments = 0):
+    Resources = {"wheet": resource("wheet","food", "WHT",baseCost = 1, tier = 1,amount = wheet),
+                "mushrooms": resource("mushrooms","food", "MSH", baseCost = 1.3, tier = 1,amount = mushrooms),
+                "berries": resource("berries","food", "BRY",baseCost = 1.2, tier = 1,amount = berries),
+                "milk": resource("milk","food", "MLK",baseCost = 2.5, tier = 2,amount = milk),
+                "wood": resource("wood","building material","WOD", baseCost = 2, tier = 1,amount = wood),
+                "instruments": resource("instruments", "craftable", "INS",baseCost = 5, tier = 2,amount = instruments)}
+    return Resources
+
+def setRequiredResources(wood = 0,instruments = 0):
+    Resource = {"wood": resource("wood", "building material", "WOD", baseCost=2, tier=1, amount=wood),
+                "instruments": resource("instruments", "craftable", "INS", baseCost=5, tier=2, amount=instruments)}
+    return Resource
+
 class building(object):
-    def __init__(self, name, type, wood, rooms = 0, buildTime = 0, capacity = 0, tier = 1, freeSpace = 0, cowCapacity = 0):
+    def __init__(self, name, type, RequiredResources, rooms = 0, buildTime = 0, capacity = 0, tier = 1, freeSpace = 0, cowCapacity = 0):
         self.name = name
         self.type = type # main, adds or houses
         self.tier = tier
-        self.woodCost = wood
+        self.RequiredResources = RequiredResources
         self.rooms = rooms
         self.buildTime = buildTime
         self.capacity = capacity
@@ -153,21 +179,17 @@ class building(object):
         self.freeSpace = freeSpace
 
 
-Mansion_lv1 = building("Mansion_lv1", "main", wood=10, rooms=1, buildTime=3,capacity=300, freeSpace=1, tier=1)
-Mansion_lv2 = building("Mansion_lv2", "main", wood=100, rooms=2, buildTime=3,capacity=500, freeSpace=2, tier=2)
-Mansion_lv3 = building("Mansion_lv3", "main", wood=400, rooms=3, buildTime=7,capacity=1250, freeSpace=5, tier=3)
-Mansion_lv4 = building("Mansion_lv4", "main", wood=900, rooms=4, buildTime=9,capacity=2250, freeSpace=8, tier=4)
-Mansion_lv5 = building("Mansion_lv5", "main", wood=1500, rooms=5, buildTime=13,capacity=5000, freeSpace=14, tier=5)
-Mansion_lv6 = building("Mansion_lv6", "main", wood=3500, rooms=5, buildTime=15,capacity=10000, freeSpace=18, tier=6)
-Storage_lv1 = building("Storage_lv1", "adds", wood=100, rooms=0, buildTime=2,capacity=500, tier=1)
-Storage_lv2 = building("Storage_lv2", "adds", wood=350, rooms=0, buildTime=4,capacity=1250, tier=2)
-Storage_lv3 = building("Storage_lv3", "adds", wood=750, rooms=0, buildTime=5,capacity=2500, tier=3)
-Barn_lv1 = building("Barn_lv1", "adds", wood=150, cowCapacity=3, buildTime=2, tier=1)
-Barn_lv2 = building("Barn_lv2", "adds", wood=150, cowCapacity=3, buildTime=2, tier=2)
-Dorm_lv1 = building("Dorm_lv1", "adds", wood=150, rooms=2, buildTime=2, tier=1)
-Dorm_lv2 = building("Dorm_lv2", "adds", wood=150, rooms=4, buildTime=4, tier=2)
+Mansion_lv1 = building("Mansion_lv1", "main", RequiredResources=setRequiredResources(wood=10), rooms=1, buildTime=3, capacity=300, freeSpace=1, tier=1)
+Mansion_lv2 = building("Mansion_lv2", "main", RequiredResources=setRequiredResources(wood=100), rooms=2, buildTime=3, capacity=500, freeSpace=2, tier=2)
+Mansion_lv3 = building("Mansion_lv3", "main", RequiredResources=setRequiredResources(wood=350,instruments=1), rooms=3, buildTime=7, capacity=1250, freeSpace=5, tier=3)
+Mansion_lv4 = building("Mansion_lv4", "main", RequiredResources=setRequiredResources(wood=900,instruments=3), rooms=4, buildTime=9, capacity=2250, freeSpace=8, tier=4)
+Mansion_lv5 = building("Mansion_lv5", "main", RequiredResources=setRequiredResources(wood=1350,instruments=5), rooms=5, buildTime=13, capacity=5000, freeSpace=14, tier=5)
+Storage_lv1 = building("Storage_lv1", "adds", RequiredResources=setRequiredResources(wood=100,instruments=1), rooms=0, buildTime=2, capacity=500, tier=1)
+Storage_lv2 = building("Storage_lv2", "adds", RequiredResources=setRequiredResources(wood=300,instruments=2), rooms=0, buildTime=2, capacity=1250, tier=1)
+Barn_lv1 = building("Barn_lv1", "adds", RequiredResources=setRequiredResources(wood=100,instruments=1), cowCapacity=3, buildTime=2, tier=1)
+Dorm_lv1 = building("Dorm_lv1", "adds", RequiredResources=setRequiredResources(wood=100,instruments=1), rooms=2, buildTime=2, tier=1)
 
-buildlist = [Mansion_lv1, Mansion_lv2, Mansion_lv3,Mansion_lv4,Mansion_lv5,Mansion_lv6,Storage_lv1,Storage_lv2,Storage_lv3,Barn_lv1,Barn_lv2,Dorm_lv1,Dorm_lv2]
+buildlist = [Mansion_lv1, Mansion_lv2, Mansion_lv3,Mansion_lv4,Mansion_lv5,Storage_lv1,Storage_lv2,Barn_lv1,Dorm_lv1]
 
 pl = player()
 
@@ -207,35 +229,42 @@ class pleb(object):
             self.wife = woman()
         if type == "Child":
             self.age = 1
-        self.wheet = 5
-        self.wood = 0
-        self.milk = 0
-        self.mushrooms = 0
-        self.instruments = 0
+        self.Resources = setResources(wheet = 10)
         self.efficiency = 1
         self.theGoal = "none"
         self.requiredMoney = 0
+        self.food = 0
+        self.foodCounting()
+
+    def foodCounting(self):
+        self.food = 0
+        for key in self.Resources:
+            if self.Resources[key].type == "food":
+                self.food += self.Resources[key].amount
+
+    def requiredfoodCounting(self):
+        self.requiredfood = 1 + 0.1 * len(self.childs)
+        if self.wife != "none":
+            self.requiredfood += 0.4
 
     def deciding(self):  # Выбор цели
-        food = self.wheet + self.milk + self.mushrooms
-        wheet = self.wheet
-        requiredfood = 1 + 0.1*len(self.childs)
-        if self.wife != "none":
-            requiredfood += 0.4
+        self.foodCounting()
+        wheet = self.Resources["wheet"].amount
+        self.requiredfoodCounting()
 
 
-        if food < requiredfood * 7:  # Решение делать еду
+        if self.food < self.requiredfood * 7:  # Решение делать еду
             self.theGoal = "food"
         elif self.house == "none": #хижина
             self.theGoal = "shed"
         elif self.wife == "none":
             self.theGoal = "wife"
-        elif self.instruments == 0: # Инструменты
+        elif self.Resources["instruments"].amount == 0: # Инструменты
             self.theGoal = "instruments"
         elif self.cow == 0: # Корова
             self.theGoal = "cow"
         else:
-            if food < requiredfood * 14:
+            if self.food < self.requiredfood * 14:
                 self.theGoal = "food" # Просто еда
             else:
                 R = random.randint(1,4)
@@ -251,11 +280,11 @@ class pleb(object):
     def jobbing(self):  # Выбор работы на основе цели
         if self.theGoal == "food":
             self.job = "gathering"
-            if self.instruments > 0:
+            if self.Resources["instruments"].amount > 0:
                 self.job = "wheet"
         elif self.theGoal == "wheet":
-            if self.instruments == 0:
-                self.requiredMoney = tr.instrumentsCost
+            if self.Resources["instruments"].amount == 0:
+                self.requiredMoney = self.Resources["instruments"].baseCost
                 if self.money >= self.requiredMoney:
                     self.job = "BuyingInstruments"
                 self.job = "SellingCow"
@@ -264,15 +293,15 @@ class pleb(object):
         elif self.theGoal == "wife":
             self.job = "wifeFinding"
         elif self.theGoal == "shed":
-            if self.wood > 10:
+            if self.Resources["wood"].amount > 10:
                 self.job = "BuildingShed"
             else:
                 self.job = "wood"
         elif self.theGoal == "instruments":
-            self.requiredMoney = tr.instrumentsCost
+            self.requiredMoney = self.Resources["instruments"].baseCost
             if self.money >= self.requiredMoney:
                 self.job = "BuyingInstruments"
-            elif round(self.wood) > 0:
+            elif round(self.Resources["wood"].amount) > 0:
                 self.job = "SellingWood"
             else:
                 self.job = "wood"
@@ -280,59 +309,70 @@ class pleb(object):
             self.requiredMoney = tr.cowCost
             if self.money >= self.requiredMoney:
                 self.job = "BuyingCow"
-            elif round(self.wood,1) > 0:
+            elif round(self.Resources["wood"].amount, 1) > 0:
                 self.job = "SellingWood"
             else:
                 self.job = "wood"
 
-    def working(self):  # Работы
+    def efficiencyCalculating(self):
         self.efficiency = 1
         if self.wife != "none":
             self.efficiency += 0.5
-        self.efficiency += 0.1*len(self.childs)
-        self.efficiency += 0.1 * self.instruments
+        self.efficiency += 0.1 * len(self.childs)
+        self.efficiency += 0.1 * self.Resources["instruments"].amount
+
+    def working(self):  # Работы
+        self.efficiencyCalculating()
         if self.job == "gathering":
-            self.mushrooms += 2 * self.efficiency * 0.8
-            pl.incomingMushrooms += 2 * self.efficiency* 0.2
+            a = random.randint(5,15)
+            b = random.randint(5,15)
+            self.Resources["mushrooms"].amount += b * 0.1 * self.efficiency * 0.8
+            pl.ResourceIncoming["mushrooms"].amount += b * 0.1 * self.efficiency * 0.2
+            self.Resources["berries"].amount += a * 0.1 * self.efficiency * 0.8
+            pl.ResourceIncoming["berries"].amount += a * 0.1 * self.efficiency * 0.2
         elif self.job == "wood":
-            self.wood += 1 * self.efficiency * 0.8
-            pl.incomingWood += 1 *self.efficiency * 0.2
+            self.Resources["wood"].amount += 1 * self.efficiency * 0.8
+            pl.ResourceIncoming["wood"].amount += 1 * self.efficiency * 0.2
         elif self.job == "wheet":
-            self.wheet += 4 * self.efficiency * 0.8
-            pl.incomingWheet += 4 *self.efficiency * 0.2
+            self.Resources["wheet"].amount += 4 * self.efficiency * 0.8
+            pl.ResourceIncoming["wheet"].amount += 4 * self.efficiency * 0.2
         elif self.job == "wifeFinding":
-            self.wife = brides[random.randint(0,len(brides)-1)]
+            self.wife = brides[random.randint(0, len(brides)-1)]
             brides.remove(self.wife)
         elif self.job == "BuildingShed":
-            self.wood -= 10
+            self.Resources["wood"].amount -= 10
             self.house = "Shed"
         elif self.job == "BuyingInstruments":
-            tr.buying(self, "instruments", 1)
+            tr.buying(self, self.Resources["instruments"].name, 1)
         elif self.job == "BuyingCow":
             tr.buying(self, "cow", 1)
         elif self.job == "SellingCow":
             tr.selling(self, "cow", 1)
         elif self.job == "SellingWood":
-            tr.selling(self,"wood",round(self.wood,1))
+            tr.selling(self, self.Resources["wood"].name, round(self.Resources["wood"].amount, 1))
 
     def spending(self):  # Расходы и доходы у крестьян
-        self.wheet -= 1 * self.cow
-        self.milk += 1 * self.cow * 0.8
-        pl.milk += 1 * self.cow * 0.2
+        self.Resources["wheet"].amount -= 1 * self.cow
+        self.Resources["milk"].amount += 1 * self.cow * 0.8
+        pl.Resources["milk"].amount += 1 * self.cow * 0.2
         if self.cow > 0:
-            if self.mushrooms > 0:
-                self.mushrooms -= 1
-            elif self.wheet > 0:
-                self.wheet -= 1
-            elif self.milk > 0:
-                self.milk -= 1
+            if self.Resources["berries"].amount > 0:
+                self.Resources["berries"].amount -= 1
+            elif self.Resources["mushrooms"].amount > 0:
+                self.Resources["mushrooms"].amount -= 1
+            elif self.Resources["wheet"].amount > 0:
+                self.Resources["wheet"].amount -= 1
+            elif self.Resources["milk"].amount > 0:
+                self.Resources["milk"].amount -= 1
         else:
-            if self.wheet > 0:
-                self.wheet -= 1
-            elif self.mushrooms > 0:
-                self.mushrooms -= 1
-            elif self.milk > 0:
-                self.milk -= 1
+            if self.Resources["wheet"].amount > 0:
+                self.Resources["wheet"].amount -= 1
+            elif self.Resources["berries"].amount > 0:
+                self.Resources["berries"].amount -= 1
+            elif self.Resources["mushrooms"].amount > 0:
+                self.Resources["mushrooms"].amount -= 1
+            elif self.Resources["milk"].amount > 0:
+                self.Resources["milk"].amount -= 1
 
     def familycheck(self):
         if self.wife != "none":
@@ -365,150 +405,124 @@ class pleb(object):
         return Dead
 
     def rounding(self):
-        self.wheet = round(self.wheet, 1)
-        self.wood = round(self.wood, 1)
-        self.milk = round(self.milk, 1)
-        self.mushrooms = round(self.mushrooms, 1)
-        self.money = round(self.money, 1)
+        for key in self.Resources:
+            self.Resources[key].rounding()
+        for key in self.Resources:
+            self.Resources[key].rounding()
+        self.money = round(self.money,1)
+
 
 class trader(object):
     def __init__(self):
         self.money = 100
         self.maxcargo = 100
-        self.wheet = 0
-        self.wood = 0
-        self.milk = 0
-        self.mushrooms = 0
+        self.Resources = setResources(instruments=30000000000)
         self.cow = 30
-        self.instruments = 30
-        self.wheetCost = 1
-        self.woodCost = 2
-        self.milkCost = 2
-        self.mushroomsCost = 1.5
         self.cowCost = 10
-        self.instrumentsCost = 5
 
     def generateGoods(self):
-        self.money += (self.wheet + self.milk + self.wood + self.mushrooms)
+        self.money += 100
         number = []
-        self.instruments += (random.randint(1,30))
         self.cow += (random.randint(1,31))
+        self.Resources["instruments"].amount += (random.randint(1, 31))
         freecargo = self.maxcargo
-        for i in range(4):
+        for i in range(3):
             num = random.randint(1, self.maxcargo * 0.5) % freecargo
             number.append(num)
             freecargo -= num
-        self.wheet += number[0]
-        self.wood += number[1]
-        self.milk += number[2]
-        self.mushrooms += number[3]
+        self.Resources["wheet"].amount += number[0]
+        self.Resources["wood"].amount += number[1]
+        self.Resources["instruments"].amount += number[2]
 
     def rounding(self):
-        self.wheet = round(self.wheet, 1)
-        if self.wheet < 0:
-            self.wheet = 0
-        self.wood = round(self.wood, 1)
-        if self.wood < 0:
-            self.wood = 0
-        self.milk = round(self.milk, 1)
-        if self.milk < 0:
-            self.milk = 0
-        self.mushrooms = round(self.mushrooms, 1)
-        if self.mushrooms < 0:
-            self.mushrooms = 0
+        for key in self.Resources:
+            self.Resources[key].rounding()
         self.money = round(self.money, 1)
 
 
     def buying(self,buyer,goods,amount):
-        if len(plebs) < 100:
-            print("Покупка",buyer.name,goods,amount)
-        if goods == "wheet":
-            if buyer.money - self.wheetCost * amount >= 0 and self.wheet - amount >= 0 :
-                buyer.money -= self.wheetCost * amount
-                self.money += self.wheetCost * amount
-                buyer.wheet += amount
-                self.wheet -= amount
-        elif goods == "wood":
-            if buyer.money - self.woodCost * amount >= 0 and self.wood - amount >= 0 :
-                buyer.money -= self.woodCost * amount
-                self.money += self.woodCost * amount
-                buyer.wood += amount
-                self.wood -= amount
-        elif goods == "milk":
-            if buyer.money - self.milkCost * amount >= 0 and self.milk - amount >= 0 :
-                buyer.money -= self.milkCost * amount
-                self.money += self.milkCost * amount
-                buyer.milk += amount
-                self.milk -= amount
-        elif goods == "mushrooms":
-            if buyer.money - self.mushroomsCost * amount >= 0 and self.mushrooms - amount >= 0 :
-                buyer.money -= self.mushroomsCost * amount
-                self.money += self.mushroomsCost * amount
-                buyer.mushrooms += amount
-                self.mushrooms -= amount
-        elif goods == "cow":
+
+        if goods == "cow":
             if buyer.money - self.cowCost * amount >= 0 and self.cow - amount >= 0 and buyer.cowCapacity >= buyer.cow + amount :
+                if len(plebs) < 100:
+                    print("Покупка", buyer.name, goods, amount)
                 buyer.money -= self.cowCost * amount
                 self.money += self.cowCost * amount
                 buyer.cow += amount
                 self.cow -= amount
-        elif goods == "instruments":
-            if buyer.money - self.instrumentsCost * amount >= 0 and self.instruments - amount >= 0 :
-                buyer.money -= self.instrumentsCost * amount
-                self.money += self.instrumentsCost * amount
-                buyer.instruments += amount
-                self.instruments -= amount
+        elif buyer.money - self.Resources[goods].baseCost * amount >= 0 and self.Resources[goods].amount - amount >= 0:
+            if len(plebs) < 100:
+                print("Покупка", buyer.name, goods, amount)
+            buyer.money -= self.Resources[goods].baseCost * amount
+            self.money += self.Resources[goods].baseCost * amount
+            buyer.Resources[goods].amount += amount
+            self.Resources[goods].amount -= amount
         else:
-            print("EXEPTION")
+            print("Неудачная транзакция",goods)
+
 
     def selling(self,seller,goods,amount):
-        if len(plebs) < 100:
-            print("Продажа", seller.name, goods, amount)
-        if goods == "wheet":
-            if self.money - self.wheetCost * amount >= 0 and seller.wheet - amount >= 0 :
-                seller.money += self.wheetCost * amount
-                self.money -= self.wheetCost * amount
-                seller.wheet -= amount
-                self.wheet += amount
-        elif goods == "wood":
-            if self.money - self.woodCost * amount >= 0 and seller.wood - amount >= 0 :
-                seller.money += self.woodCost * amount
-                self.money -= self.woodCost * amount
-                seller.wood -= amount
-                self.wood += amount
-        elif goods == "milk":
-            if self.money - self.milkCost * amount >= 0 and seller.milk - amount >= 0 :
-                seller.money += self.milkCost * amount
-                self.money -= self.milkCost * amount
-                seller.milk -= amount
-                self.milk += amount
-        elif goods == "mushrooms":
-            if self.money - self.mushroomsCost * amount >= 0 and seller.mushrooms - amount >= 0 :
-                seller.money += self.mushroomsCost * amount
-                self.money -= self.mushroomsCost * amount
-                seller.mushrooms -= amount
-                self.mushrooms += amount
-        elif goods == "cow":
+        if goods == "cow":
             if self.money - self.cowCost * amount >= 0 and seller.cow - amount >= 0:
+                if len(plebs) < 100:
+                    print("Продажа", seller.name, goods, amount)
                 seller.money += self.cowCost * amount
                 self.money -= self.cowCost * amount
                 seller.cow -= amount
                 self.cow += amount
-        elif goods == "instruments":
-            if self.money - self.instrumentsCost * amount >= 0 and seller.instruments - amount >= 0:
-                seller.money += self.instrumentsCost * amount
-                self.money -= self.instrumentsCost * amount
-                seller.instruments -= amount
-                self.instruments += amount
+        elif self.money - self.Resources[goods].baseCost * amount >= 0 and seller.Resources[goods].amount - amount >= 0:
+            if len(plebs) < 100:
+                print("Продажа", seller.name, goods, amount)
+            seller.money += self.Resources[goods].baseCost * amount
+            self.money -= self.Resources[goods].baseCost * amount
+            seller.Resources[goods].amount -= amount
+            self.Resources[goods].amount += amount
         else:
-            print("Ошибка")
+            print("Неудачная транзакция")
+
+
+def showResourcesAmount(Dict, name):
+    i = 0
+    line = "|"
+    print(name + ':')
+    for key in Dict:
+        i += 1
+        line += Dict[key].name +": "+ str(Dict[key].amount)+"|"
+        if i == 3:
+            print(line)
+            line = "|"
+            i = 0
+    if i > 0:
+        print(line)
+
+
+def showResourcesPrice(Dict, name):
+    i = 0
+    line = "|"
+    print(name + ':')
+    for key in Dict:
+        i += 1
+        line += Dict[key].name, ": " + str(Dict[key].baseCost + "|")
+        if i == 3:
+            print(line)
+            line = "|"
+            i = 0
+    if i > 0:
+        print(line)
+
+def KeywordSearch(Dict, keyword):
+    ret = "None"
+    for i in Dict:
+        if Dict[i].keyword == keyword:
+            ret = i
+    return i
 
 tr = trader()
 
 while exit == 0:
 
     if state == "MENU":  # стейт меню
-        print("-v0.1.1 - BUILDINGS Update")
+        print("-v0.1.9 - TRAITS prepatch")
         print("Симулятор Дворянина")
         print("1 - начать игру")
         print("2 - выйти")
@@ -536,7 +550,7 @@ while exit == 0:
             if p.wife != "none":
                 wife = p.wife.name
             print(
-            "№", i, "Имя:", p.name + " " * (9 - len(p.name)),"|Дом:", p.house, "Коровы:", p.cow,"Инструменты:", p.instruments,"|Гр:", p.mushrooms, "|Пш:", p.wheet, "|Млк:", p.milk, "|Др:", p.wood, "|")
+            "№", i, "Имя:", p.name + " " * (9 - len(p.name)),"|Дом:", p.house, "Коровы:", p.cow,"Инструменты:", p.Resources["instruments"].amount,"|Еда:",p.food,"|")
             print("Возраст:",p.age,"Жена:", wife,"Дети:", len(p.childs),"Работа:", p.job, "Деньги:", p.money)
             i = i + 1
         print("---")
@@ -553,16 +567,16 @@ while exit == 0:
     elif state == "STATUS":
         print("Ваши деньги -", pl.money)
         print("Склад (",pl.capacity,")")
-        print("-|Грибы:", pl.mushrooms, "|Пшеница:", pl.wheet, "|")
-        print("|Молоко:", pl.milk, "|Дрова:", pl.wood, "|")
-        print("Инструменты:", pl.instruments)
+        showResourcesAmount(pl.Resources, "Рессурсы")
         print("Коровы:",pl.cow,"/",pl.cowCapacity)
         print("Ежедневные Расходы - Еда: 1")
-        print("Рассчитываемый доход за", pl.day - 1)
-        print(" |Гр:", pl.incomingMushrooms, "|Пш:", pl.incomingWheet, "|Млк:",
-              pl.incomingMilk, "|Др:", pl.incomingWood, "|")
+        #print("Рассчитываемый доход за", pl.day - 1)
+        #print(" |Гр:", pl.incomingMushrooms, "|Пш:", pl.incomingWheet, "|Млк:",
+        #      pl.incomingMilk, "|Др:", pl.incomingWood, "|")
         print("1 - Посмотреть доступные для строения")
         print("2 - Посмотреть Мои строения")
+        print("3 - Посмотреть доход")
+
 
     elif state == "BUILDLIST":
         print("Доступные строения:")
@@ -571,24 +585,26 @@ while exit == 0:
             if p.type == "main":
                 if p.tier == 1 + pl.house.tier:
                     print("Основное здание:")
-                    print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Cовбодные комнаты:", p.rooms,)
-                    print("Время постройки:", p.buildTime, "Вместимость:", p.capacity,"Максимальное количество пристроек:",p.freeSpace)
+                    print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Cовбодные комнаты:", p.rooms,)
+                    showResourcesAmount(p.RequiredResources, "Требуемые рессурсы")
+                    print("Время постройки:", p.buildTime, "Вместимость:", p.capacity)
                     print("Доп. здание---------------------------------------")
-            elif p.type == "adds" and p.tier < pl.house.tier:
+            elif p.type == "adds":
                 print(
-                "№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Cовбодные комнаты:", p.rooms)
+                "№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Cовбодные комнаты:", p.rooms)
+                showResourcesAmount(p.RequiredResources, "Требуемые рессурсы")
                 print("Время постройки:", p.buildTime, "Вместимость:", p.capacity,"Места для скота:", p.cowCapacity)
                 print("------------------------------------------------------")
             i = i + 1
 
     elif state == "BUILDINGLIST":
         print("Основное строение:")
-        print("Имя:", pl.house.name + " " * (9 - len(pl.house.name)), "Стоимость:", pl.house.woodCost, "Cовбодные комнаты:",pl.house.rooms)
+        print("Имя:", pl.house.name + " " * (9 - len(pl.house.name)),"Cовбодные комнаты:",pl.house.rooms)
         print("Вместимость:", pl.house.capacity, "Сободного места для пристроек:", pl.house.freeSpace, "Уровень:", pl.house.tier )
         print("Всего места для скота:", pl.cowCapacity)
         print("Доп. здание---------------------------------------")
         for p in pl.adds:
-            print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Стоимость:", p.woodCost, "Дополнительные комнаты:",
+            print("№", i, "Имя:", p.name + " " * (9 - len(p.name)), "Дополнительные комнаты:",
                 p.rooms,)
             print("Дополнительная вместимость:", p.capacity, "Дополнительные места для скота:", p.cowCapacity)
             print("------------------------------------------------------")
@@ -602,26 +618,18 @@ while exit == 0:
 
     elif state == "TRADE":
         print("Вещи торговца(",tr.money,")")
-        print("|Грибы:", tr.mushrooms, "|Пшеница:", tr.wheet, "|")
-        print("|Молоко:", tr.milk, "|Дрова:", tr.wood, "|")
-        print("|Коровы:", tr.cow, "|Интсрументы:", tr.instrumentsCost, "|")
+        showResourcesAmount(tr.Resources, "Рессурсы")
         print("B - Купить")
         print("S - Продать")
         print("1 - Выйти")
 
     elif state == "BUYLIST":
-        print("Цена покупки ")
-        print("|Грибы(MSH):", tr.mushroomsCost, "|Пшеница(WHT:", tr.wheetCost, "|")
-        print("|Молоко(MLK):", tr.milkCost, "|Дрова(WOD):", tr.woodCost, "|")
-        print("|Коровы(COW):", tr.cowCost, "|Интсрументы(INS):", tr.instrumentsCost, "|")
+        showResourcesPrice(tr.Resources, "Цена покупки")
         print("Пример -[COW 1]")
         print("1 - Выйти")
 
     elif state == "SELLLIST":
-        print("Цена продажи ")
-        print("|Грибы(MSH):", pl.mushrooms, "|Пшеница(WHT):", pl.wheet, "|")
-        print("|Молоко(MLK):", pl.milk, "|Дрова(WOD):", pl.wood, "|")
-        print("|Коровы(COW):", pl.cow, "|Интсрументы(INS):", pl.instruments, "|")
+        showResourcesAmount(pl.Resources, "Ваши ресурсы")
         print("Пример -[MSH 1]")
         print("1 - Выйти")
 
@@ -699,38 +707,26 @@ while exit == 0:
             state = "MAIN"
 
     elif state == "BUYLIST":
-        if word[0:3] == "MSH":
-            tr.buying(pl,"mushrooms",int(word[4:]))
-        elif word[0:3] == "WHT":
-            tr.buying(pl,"wheet",int(word[4:]))
-        elif word[0:3] == "MLK":
-            tr.buying(pl,"milk",int(word[4:]))
-        elif word[0:3] == "WOD":
-            tr.buying(pl,"wood",int(word[4:]))
-        elif word[0:3] == "COW":
+        if word[0:3] == "COW":
             tr.buying(pl,"cow",int(word[4:]))
-        elif word[0:3] == "INS":
-            tr.buying(pl,"instruments",int(word[4:]))
         elif word == "1":
             state = "TRADE"
         else:
-            print("Mistake")
+            try:
+                tr.buying(pl,KeywordSearch(pl.Resources,word[0:3]),int(word[4:]))
+            except:
+                print("Mistake")
 
     elif state == "SELLLIST":
-        if word[0:3] == "MSH":
-            tr.selling(pl,"mushrooms",int(word[4:]))
-        elif word[0:3] == "WHT":
-            tr.selling(pl,"wheet",int(word[4:]))
-        if word[0:3] == "MLK":
-            tr.selling(pl,"milk",int(word[4:]))
-        elif word[0:3] == "WOD":
-            tr.selling(pl,"wood",int(word[4:]))
         if word[0:3] == "COW":
-            tr.selling(pl,"cow",int(word[4:]))
-        elif word[0:3] == "INS":
-            tr.selling(pl,"instruments",int(word[4:]))
+            tr.selling(pl, "cow", int(word[4:]))
         elif word == "1":
             state = "TRADE"
+        else:
+            try:
+                tr.selling(pl, KeywordSearch(pl.Resources), int(word[4:]))
+            except:
+                print("Mistake")
 
     elif state == "BRIDELIST":
         state = "MAIN"
