@@ -1,4 +1,4 @@
-# Fief-simulator 0.1.0 by jktulord
+# Fief-simulator 0.1.9 by jktulord
 
 #### 0.1.9 preTRAIT Update (20.12.2019)
   - Изменения в прошлом апдейте откатились
